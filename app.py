@@ -67,6 +67,13 @@ class FraudDetectionApp:
             })
             st.dataframe(dist_df, hide_index=True)
             st.caption("Sử dụng class_weight='balanced' để bù imbalance.")
+            # Nhánh Visualize: Thêm biểu đồ cột so sánh
+                st.write("### 📊 Biểu đồ phân tích xác suất:")
+                chart_data = pd.DataFrame({
+                    'Trạng thái': ["Bình thường", "Nghi vấn", "Rủi ro cao"],
+                    'Xác suất (%)': probability[0] * 100
+                })
+                st.bar_chart(chart_data.set_index('Trạng thái'))
 
         # Giao diện chính chia làm 2 cột
         col1, col2 = st.columns([1, 2])
@@ -106,6 +113,14 @@ class FraudDetectionApp:
                     st.warning("⚠️ Kết quả: Có dấu hiệu Gian lận (Loại 1)")
                 else:
                     st.error("🚨 Kết quả: Nghi vấn Gian lận Nghiêm trọng (Loại 2)")
+                    # Nhánh Export: Cho phép tải kết quả
+                report_text = f"KẾT QUẢ CHẨN ĐOÁN GIAN LẬN\nKết quả: {prediction}\nXác suất: {probability}"
+                st.download_button(
+                    label="📥 Tải báo cáo kết quả",
+                    data=report_text,
+                    file_name="bao_cao_gian_lan.txt",
+                    mime="text/plain")
+    
 
                 # Hiển thị xác suất
                 st.write("### Xác suất chi tiết:")
