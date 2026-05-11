@@ -77,7 +77,8 @@ class FraudDetectionApp:
 
             # Tạo các ô nhập liệu cho 13 chỉ số
             for feature in self.features:
-                val_str = st.text_input(f"{feature}", value="0.0")
+            # Chỉnh sửa: Chuyển sang number_input để chuyên nghiệp hơn
+                input_data[feature] = st.number_input(f"Chỉ số: {feature}", value=0.0, format="%.2f")
                 
                 # Ép kiểu từ chữ sang số thực (float)
                 try:
