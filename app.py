@@ -1,7 +1,9 @@
-﻿import streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
+import os
+
 # --- CẤU HÌNH TRANG ---
 st.set_page_config(page_title="Hệ thống Chẩn đoán Gian lận Tài chính", layout="wide")
 
@@ -20,17 +22,15 @@ class FraudDetectionApp:
     def train_model(_self):
         """Huấn luyện mô hình với class_weight='balanced'"""
         try:
+            # KIỂM TRA FILE TRƯỚC KHI ĐỌC
+            if not os.path.exists(_self.data_path):
+                return None, None, None
+                
             df = pd.read_csv(_self.data_path)
             X = df[_self.features]
             y = df['Financial_Status']
-
             class_counts = y.value_counts()
 
-            # Chỉ dùng class_weight='balanced' — không cần SMOTE.
-            # SMOTE tạo quá nhiều mẫu tổng hợp (306→2253 cho class 2)
-            # khiến model học ranh giới nhiễu, dự đoán sai.
-            # class_weight='balanced' tính w = n/(n_classes*n_j) từ dữ liệu thực,
-            # đủ để bù imbalance mà không cần dữ liệu giả.
             rf = RandomForestClassifier(
                 n_estimators=300,
                 class_weight='balanced',
@@ -43,96 +43,77 @@ class FraudDetectionApp:
             rf.fit(X, y)
             return rf, df, class_counts
         except Exception as e:
-            st.error(f"Lỗi khi huấn luyện mô hình: {e}")
+            st.error(f"Lỗi hệ thống: {e}")
             return None, None, None
 
     def run(self):
         st.title("🛡️ Hệ thống Phát hiện Gian lận Báo cáo Tài chính")
         st.markdown("---")
 
-        # Khởi tạo mô hình
-        with st.spinner("Đang huấn luyện mô hình thực tế..."):
-            self.model, full_data, class_counts = self.train_model()
+        # 1. KHỞI TẠO MÔ HÌNH
+        self.model, full_data, class_counts = self.train_model()
 
         if self.model is None:
+            st.error(f"❌ KHÔNG TÌM THẤY FILE '{self.data_path}'! Em hãy kéo file này vào thư mục dự án nhé.")
             return
 
-        # Hiển thị thống kê dữ liệu huấn luyện trong sidebar
+        # 2. SIDEBAR - THÔNG TIN & HƯỚNG DẪN
         with st.sidebar:
             st.header("📈 Thông tin mô hình")
-            st.write("**Phân phối class gốc:**")
             dist_df = pd.DataFrame({
-                'Class': ['0 - Bình thường', '1 - Nghi vấn', '2 - Rủi ro cao'],
+                'Trạng thái': ['Bình thường', 'Nghi vấn', 'Rủi ro cao'],
                 'Số mẫu': [class_counts.get(0, 0), class_counts.get(1, 0), class_counts.get(2, 0)],
             })
             st.dataframe(dist_df, hide_index=True)
-            st.caption("Sử dụng class_weight='balanced' để bù imbalance.")
-            # Nhánh Visualize: Thêm biểu đồ cột so sánh
-                st.write("### 📊 Biểu đồ phân tích xác suất:")
-                chart_data = pd.DataFrame({
-                    'Trạng thái': ["Bình thường", "Nghi vấn", "Rủi ro cao"],
-                    'Xác suất (%)': probability[0] * 100
-                })
-                st.bar_chart(chart_data.set_index('Trạng thái'))
+            
+            st.markdown("---")
+            st.header("💡 Giải thích chỉ số")
+            st.info("- **Revenue:** Doanh thu\n- **Net Income:** Lợi nhuận ròng\n- **Total Assets:** Tổng tài sản")
 
-        # Giao diện chính chia làm 2 cột
-        col1, col2 = st.columns([1, 2])
+        # 3. GIAO DIỆN CHÍNH
+        col1, col2 = st.columns([1, 1.5])
 
         with col1:
-            st.header("📋 Nhập dữ liệu tài chính")
+            st.header("📋 Nhập dữ liệu")
             input_data = {}
-
-            # Tạo các ô nhập liệu cho 13 chỉ số
+            # Dùng number_input để chuyên nghiệp và tránh lỗi nhập chữ
             for feature in self.features:
-            # Chỉnh sửa: Chuyển sang number_input để chuyên nghiệp hơn
-                input_data[feature] = st.number_input(f"Chỉ số: {feature}", value=0.0, format="%.2f")
-                
-                # Ép kiểu từ chữ sang số thực (float)
-                try:
-                    input_data[feature] = float(val_str)
-                except ValueError:
-                    st.error(f"⚠️ Vui lòng chỉ nhập số cho trường {feature}!")
-                    input_data[feature] = 0.0
+                input_data[feature] = st.number_input(f"Chỉ số {feature}", value=0.0, format="%.2f")
             
             predict_btn = st.button("🔍 Thực hiện chẩn đoán", use_container_width=True)
 
         with col2:
             st.header("📊 Kết quả dự báo")
             if predict_btn:
-                # Chuyển dữ liệu nhập vào thành DataFrame
                 input_df = pd.DataFrame([input_data])
-                
-                # Thực hiện dự đoán
                 prediction = self.model.predict(input_df)[0]
                 probability = self.model.predict_proba(input_df)
 
-                # Hiển thị kết quả trực quan
+                # Hiển thị thông báo kết quả
                 if prediction == 0:
                     st.success("✅ Kết quả: Báo cáo Tài chính Bình thường")
                 elif prediction == 1:
-                    st.warning("⚠️ Kết quả: Có dấu hiệu Gian lận (Loại 1)")
+                    st.warning("⚠️ Kết quả: Có dấu hiệu Nghi vấn (Loại 1)")
                 else:
-                    st.error("🚨 Kết quả: Nghi vấn Gian lận Nghiêm trọng (Loại 2)")
-                    # Nhánh Export: Cho phép tải kết quả
-                report_text = f"KẾT QUẢ CHẨN ĐOÁN GIAN LẬN\nKết quả: {prediction}\nXác suất: {probability}"
-                st.download_button(
-                    label="📥 Tải báo cáo kết quả",
-                    data=report_text,
-                    file_name="bao_cao_gian_lan.txt",
-                    mime="text/plain")
-    
+                    st.error("🚨 Kết quả: Rủi ro Gian lận Cao (Loại 2)")
 
-                # Hiển thị xác suất
-                st.write("### Xác suất chi tiết:")
-                prob_df = pd.DataFrame(
-                    probability, 
-                    columns=["Bình thường (0)", "Nghi vấn (1)", "Rủi ro cao (2)"]
-                )
-                st.dataframe(prob_df.style.highlight_max(axis=1))
+                # BIỂU ĐỒ TRỰC QUAN
+                st.write("### 📉 Phân tích xác suất:")
+                prob_data = pd.DataFrame({
+                    'Nhãn': ["Bình thường", "Nghi vấn", "Rủi ro"],
+                    'Phần trăm': probability[0] * 100
+                })
+                st.bar_chart(prob_data.set_index('Nhãn'))
 
+                # NÚT TẢI BÁO CÁO
+                res_txt = f"CHẨN ĐOÁN GIAN LẬN\nKết quả: {prediction}\nXác suất Rủi ro: {probability[0][2]*100:.2f}%"
+                st.download_button("📥 Tải kết quả (.txt)", res_txt, file_name="ket_qua.txt")
             else:
-                st.info("Vui lòng nhập các thông số bên trái và ấn nút Chẩn đoán.")
+                st.info("Nhập thông số bên trái và nhấn nút để bắt đầu phân tích.")
 
+if __name__ == "__main__":
+    app = FraudDetectionApp("train_data.csv")
+    app.run()
 
 if __name__ == "__main__":
     # Đảm bảo file train_data.csv nằm cùng thư mục với app.py
