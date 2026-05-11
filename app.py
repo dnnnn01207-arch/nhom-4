@@ -113,6 +113,14 @@ class FraudDetectionApp:
                     st.warning("⚠️ Kết quả: Có dấu hiệu Gian lận (Loại 1)")
                 else:
                     st.error("🚨 Kết quả: Nghi vấn Gian lận Nghiêm trọng (Loại 2)")
+                    # Nhánh Export: Cho phép tải kết quả
+                report_text = f"KẾT QUẢ CHẨN ĐOÁN GIAN LẬN\nKết quả: {prediction}\nXác suất: {probability}"
+                st.download_button(
+                    label="📥 Tải báo cáo kết quả",
+                    data=report_text,
+                    file_name="bao_cao_gian_lan.txt",
+                    mime="text/plain")
+    
 
                 # Hiển thị xác suất
                 st.write("### Xác suất chi tiết:")
