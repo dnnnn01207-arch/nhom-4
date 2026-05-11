@@ -67,6 +67,13 @@ class FraudDetectionApp:
             })
             st.dataframe(dist_df, hide_index=True)
             st.caption("Sử dụng class_weight='balanced' để bù imbalance.")
+            # Nhánh Visualize: Thêm biểu đồ cột so sánh
+                st.write("### 📊 Biểu đồ phân tích xác suất:")
+                chart_data = pd.DataFrame({
+                    'Trạng thái': ["Bình thường", "Nghi vấn", "Rủi ro cao"],
+                    'Xác suất (%)': probability[0] * 100
+                })
+                st.bar_chart(chart_data.set_index('Trạng thái'))
 
         # Giao diện chính chia làm 2 cột
         col1, col2 = st.columns([1, 2])
