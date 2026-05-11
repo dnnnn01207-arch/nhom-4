@@ -1,0 +1,14 @@
+# Chặn file cấu hình bí mật (Chứa API Key của em)
+.env
+
+# Chặn file dữ liệu nặng (Tránh lỗi giới hạn dung lượng GitHub)
+cleaned_financial_data.csv
+
+# Chặn các file rác của hệ thống Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Chặn thư mục môi trường ảo (nếu em lỡ tạo trong này)
+venv/
+env/
