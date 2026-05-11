@@ -87,31 +87,23 @@ def train_model(data: pd.DataFrame):
     return model, X_test, y_test, accuracy, report, cm
 
 
-def build_sidebar_inputs(data: pd.DataFrame) -> np.ndarray:
-    """Tạo các input trên thanh bên để người dùng nhập giá trị đặc trưng."""
-    st.sidebar.header("Nhập đặc trưng công ty")
-    values = []
-
-    for feature in FEATURE_COLUMNS:
-        col_min = float(data[feature].min())
-        col_max = float(data[feature].max())
-        col_mean = float(data[feature].mean())
-
-        value = st.sidebar.number_input(
-            label=f"{feature}",
-            min_value=col_min,
-            max_value=col_max,
-            value=col_mean,
-            step=max((col_max - col_min) / 100.0, 0.01),
-            format="%.4f",
-        )
-        values.append(value)
-
-    input_array = np.array(values, dtype=float).reshape(1, -1)
-    return input_array
-
-
 def plot_confusion_matrix(matrix: np.ndarray):
+    """Vẽ ma trận nhầm lẫn bằng seaborn và matplotlib."""
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(
+        matrix,
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+        xticklabels=["0", "1", "2"],
+        yticklabels=["0", "1", "2"],
+        ax=ax,
+    )
+    ax.set_title("Ma trận nhầm lẫn")
+    ax.set_xlabel("Dự đoán")
+    ax.set_ylabel("Giá trị thực tế")
+    plt.tight_layout()
+    return fig
     """Vẽ ma trận nhầm lẫn bằng seaborn và matplotlib."""
     fig, ax = plt.subplots(figsize=(6, 5))
     sns.heatmap(
@@ -146,15 +138,42 @@ def main():
     data = load_data(DATA_FILE)
     model, X_test, y_test, accuracy, report, cm = train_model(data)
 
-    # Tạo phần nhập giá trị trên thanh bên
-    input_data = build_sidebar_inputs(data)
-
-    # Nút dự đoán
-    if st.sidebar.button("Dự đoán Trạng thái Tài chính"):
-        prediction = model.predict(input_data)[0]
-        st.success(
-            f"Dự đoán: Nhãn {prediction} - {LABEL_MAPPING.get(prediction, 'Không xác định')}"
-        )
+    # Phần tải lên file dữ liệu
+    st.header("Tải lên file dữ liệu để dự đoán")
+    uploaded_file = st.file_uploader("Chọn file CSV chứa dữ liệu tài chính", type=["csv"])
+    
+    if uploaded_file is not None:
+        try:
+            # Đọc file CSV
+            input_data = pd.read_csv(uploaded_file)
+            st.write("Dữ liệu tải lên:")
+            st.dataframe(input_data.head())
+            
+            # Kiểm tra các cột cần thiết
+            missing_cols = [col for col in FEATURE_COLUMNS if col not in input_data.columns]
+            if missing_cols:
+                st.error(f"File thiếu các cột sau: {missing_cols}")
+            else:
+                # Dự đoán
+                predictions = model.predict(input_data[FEATURE_COLUMNS])
+                input_data['Predicted_Status'] = predictions
+                input_data['Label'] = [LABEL_MAPPING.get(p, 'Không xác định') for p in predictions]
+                
+                st.success("Dự đoán hoàn thành!")
+                st.write("Kết quả dự đoán:")
+                st.dataframe(input_data)
+                
+                # Cho phép tải xuống kết quả
+                csv = input_data.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="Tải xuống kết quả CSV",
+                    data=csv,
+                    file_name="predicted_financial_status.csv",
+                    mime="text/csv",
+                    key="download-csv"
+                )
+        except Exception as e:
+            st.error(f"Lỗi khi xử lý file: {e}")
 
     # Phần đánh giá hiệu năng mô hình
     st.header("Đánh giá hiệu năng mô hình")
