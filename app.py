@@ -3,6 +3,8 @@ import pandas as pd
 import streamlit as st
 import pandas as pd
 import numpy as np
+import shap
+import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 # --- CẤU HÌNH TRANG ---
 st.set_page_config(page_title="Hệ thống Chẩn đoán Gian lận Tài chính", layout="wide")
@@ -126,11 +128,39 @@ class FraudDetectionApp:
 
                 # Hiển thị xác suất
                 st.write("### Xác suất chi tiết:")
-                prob_df = pd.DataFrame(
-                    probability, 
-                    columns=["Bình thường (0)", "Nghi vấn (1)", "Rủi ro cao (2)"]
-                )
-                st.dataframe(prob_df.style.highlight_max(axis=1))
+                    prob_df = pd.DataFrame(
+                        probability, 
+                        columns=["Bình thường (0)", "Nghi vấn (1)", "Rủi ro cao (2)"]
+                    )
+                    st.dataframe(prob_df.style.highlight_max(axis=1))
+
+                    # --- BẢN CẬP NHẬT: GIẢI THÍCH QUYẾT ĐỊNH BẰNG SHAP ---
+                    st.markdown("---")
+                    st.write("### 🧠 Yếu tố cốt lõi dẫn đến kết luận này")
+                    with st.spinner("Đang phân tích nguyên nhân..."):
+                        try:
+                            # Khởi tạo SHAP explainer cho mô hình Random Forest
+                            explainer = shap.TreeExplainer(self.model)
+                            shap_values = explainer.shap_values(input_df)
+                            
+                            # Random Forest đa lớp trả về list SHAP values, ta lấy đúng class máy vừa dự đoán
+                            predicted_shap_values = shap_values[prediction] if isinstance(shap_values, list) else shap_values
+                            
+                            # Vẽ biểu đồ các chỉ số ảnh hưởng mạnh nhất
+                            fig, ax = plt.subplots(figsize=(8, 5))
+                            shap.summary_plot(
+                                predicted_shap_values, 
+                                input_df, 
+                                plot_type="bar", 
+                                show=False,
+                                color="#ff4b4b" if prediction > 0 else "#21c354"
+                            )
+                            plt.xlabel("Mức độ tác động đến kết quả")
+                            st.pyplot(fig)
+                            st.caption(f"Biểu đồ thể hiện các chỉ số tài chính đã 'đẩy' kết quả về loại **{prediction}**. Thanh càng dài, ảnh hưởng càng lớn.")
+                            
+                        except Exception as e:
+                            st.error(f"Lỗi khi tạo giải thích: {e}")
 
             else:
                 st.info("Vui lòng nhập các thông số bên trái và ấn nút Chẩn đoán.")
